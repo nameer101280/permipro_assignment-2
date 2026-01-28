@@ -20,6 +20,7 @@ class HealthAPIView(APIView):
 class AskAPIView(APIView):
     def post(self, request):
         question = request.data.get("question") or request.data.get("q")
+        top_k = request.data.get("top_k", 3)
         if not isinstance(question, str) or not question.strip():
             return Response(
                 {"error": "question is required", "source": "unknown"},
@@ -27,11 +28,18 @@ class AskAPIView(APIView):
             )
 
         try:
-            result = answer_question(question.strip())
+            try:
+                top_k = int(top_k)
+            except (TypeError, ValueError):
+                top_k = 3
+
+            result = answer_question(question.strip(), top_k=top_k)
         except Exception:
             return Response(
                 {"error": "failed to process question", "source": "unknown"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response({"answer": result.answer, "source": result.source})
+        return Response(
+            {"answer": result.answer, "source": result.source, "meta": result.meta}
+        )

@@ -10,13 +10,13 @@ A small Django REST Framework API that routes questions to a mock geo dataset or
 python3 -m pip install -r requirements.txt
 ```
 
-2. Run the server:
+2. Run the server (example uses port 8001):
 
 ```bash
-python3 manage.py runserver
+python3 manage.py runserver 8001
 ```
 
-The API will be available at `http://127.0.0.1:8000/api/ask/`.
+The API will be available at `http://127.0.0.1:8001/api/ask/`.
 
 ## API endpoints
 
@@ -26,7 +26,7 @@ The API will be available at `http://127.0.0.1:8000/api/ask/`.
 ## Example curl
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/ask/ \
+curl -X POST http://127.0.0.1:8001/api/ask/ \
   -H "Content-Type: application/json" \
   -d '{"question": "What is the mobiscore per ha?"}'
 ```
@@ -36,13 +36,36 @@ Example response:
 ```json
 {
   "answer": "Match in geo data: Mobiscore per ha. status=1; distance_m=0; overlap_fraction=1; details=Geeft_per_ha-cel_de_totale_mobiscore_tussen_0_en_10_weer=7.759283065795898.",
-  "source": "geo"
+  "source": "geo",
+  "meta": {
+    "confidence": 0.83,
+    "route_confidence": 1.0,
+    "match_confidence": 0.67,
+    "route_scores": { "geo": 6, "regulation": 0 },
+    "top_matches": [
+      {
+        "name": "Mobiscore per ha",
+        "score": 2,
+        "status": "1",
+        "distance_m": "0",
+        "overlap_fraction": "1",
+        "details": "Geeft_per_ha-cel_de_totale_mobiscore_tussen_0_en_10_weer=7.759283065795898"
+      }
+    ],
+    "processing_ms": 2,
+    "data_file": "mock_geo_data.csv"
+  }
 }
 ```
+
+## Request options
+
+- `top_k` (optional): integer 1-5, controls how many top matches are returned in `meta.top_matches`.
 
 ## Optional Next.js UI
 
 The UI lives in `ui/` and calls the API endpoint directly.
+It includes quick prompts, metadata display, and a short history of recent questions.
 
 ```bash
 cd ui
@@ -55,9 +78,10 @@ To override, set `NEXT_PUBLIC_API_URL` (see `ui/.env.example`).
 
 ## Routing logic
 
-- The router uses keyword matching to decide between `geo` and `regulation`.
-- If both sources score the same (or no keywords are found), the source is `unknown`.
-- For a chosen source, the system searches the corresponding mock file and returns the best matching block or row.
+- The router uses keyword + token overlap scoring to decide between `geo` and `regulation`.
+- Article references like `Art. 0.4` strongly boost the regulation route.
+- If both sources score similarly (or no meaningful signals are found), the source is `unknown`.
+- For a chosen source, the system searches the corresponding mock file and returns the best matching block or row plus `top_matches` metadata.
 
 ## Data file formats
 

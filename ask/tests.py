@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 from rest_framework.test import APIClient
 
-from .logic import answer_question, route_question, search_geo, search_regulation
+from .logic import route_question, search_geo, search_regulation
 
 
 class RoutingTests(SimpleTestCase):
@@ -20,11 +20,11 @@ class RoutingTests(SimpleTestCase):
 
 class SearchTests(SimpleTestCase):
     def test_geo_search_finds_mobiscore(self):
-        answer = search_geo("mobiscore per ha")
+        answer = search_geo("mobiscore per ha").answer
         self.assertIn("Mobiscore per ha", answer)
 
     def test_regulation_search_finds_bouwlaag(self):
-        answer = search_regulation("What is a bouwlaag?")
+        answer = search_regulation("What is a bouwlaag?").answer
         self.assertIn("Bouwlaag", answer)
 
 
@@ -39,6 +39,7 @@ class ApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["source"], "geo")
         self.assertIn("Mobiscore per ha", response.data["answer"])
+        self.assertIn("meta", response.data)
 
     def test_api_missing_question(self):
         response = self.client.post("/api/ask/", {}, format="json")
@@ -57,3 +58,13 @@ class ApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("answer", response.data)
         self.assertIn("source", response.data)
+        self.assertIn("meta", response.data)
+        self.assertIn("confidence", response.data["meta"])
+        self.assertIn("route_scores", response.data["meta"])
+
+    def test_api_top_k_respected(self):
+        response = self.client.post(
+            "/api/ask/", {"question": "mobiscore per ha", "top_k": 1}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertLessEqual(len(response.data["meta"]["top_matches"]), 1)
